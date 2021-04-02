@@ -1,0 +1,92 @@
+type: install
+name: Async Geo Replication
+id: async-geo-replication
+baseUrl: https://raw.githubusercontent.com/sych74/async-geo-replica/main
+
+globals:
+  db_user: jelastic-${fn.random}
+  db_pass: ${fn.password(10)}
+
+onInstall:
+  - initGlobals
+  - createEnvs
+  - getEnvNodes
+
+actions:
+
+  initGlobals:
+    - script: |
+        var regions = '${settings.regions}'.split(','),
+            envGroups = eval('(' + MANIFEST + ')').envGroups, index,
+            onAfterReturn = { setGlobals: {} }, 
+            glbs = onAfterReturn.setGlobals,
+            resp, domain;
+        resp = jelastic.env.control.GetRegions(appid, session);
+        if (resp.result != 0) return resp;
+        resp = resp.array;
+        for (var i = 0, n = regions.length; i < n; i ++) {
+          index = i + 1;
+          glbs["region-" + index] = regions[i];
+          for (var a = 0, b = resp.length; a < b; a++) {
+            for (var k = 0, l = resp[a].hardNodeGroups.length; k < l; k++) {
+              if (resp[a].hardNodeGroups[k].uniqueName == regions[i])
+                glbs["domain-" + index] = resp[a].domain;
+            }
+          }
+          if (index == 1) {
+            glbs["displayName-" + index] = "WP Cluster Master";
+            glbs["initial_env_master-" + index] = "true";
+          } else {
+            glbs["displayName-" + index] = "WP Cluster Slave " + i;
+            glbs["initial_env_master-" + index] = "false";
+          }
+        }
+        glbs["envGroups"] = envGroups;
+        glbs["regionsCount"] = regions.length;
+        glbs["master_env_name"] = "${settings.envName}-1";
+        return { result: 0, onAfterReturn: onAfterReturn };
+
+  createEnvs:
+    - script: |
+        var regions = '${settings.regions}'.split(','),
+            actions = [];
+        for (var cluster = 1, n = regions.length + 1; cluster < n; cluster ++) {
+          actions.push({
+            jps: "${baseUrl}/topology.jps?_r=${fn.random}",
+            envName: "${settings.envName}-" + cluster,
+            loggerName: "${settings.envName}-" + cluster,
+            envGroups: "${globals.envGroups}",
+            displayName: "${globals.displayName-" + cluster + "}",
+            region: "${globals.region-" + cluster + "}",
+            settings: {
+              db_user: "${globals.db_user}",
+              db_pass: "${globals.db_pass}"
+            }  
+          });
+        }
+        return { result: 0, onAfterReturn: { install: actions } };
+
+  getEnvNodes:
+    - script: |
+        var regions = '${settings.regions}'.split(','),
+            onAfterReturn = { setGlobals: {} },
+            glbs = onAfterReturn.setGlobals;
+        for (var cluster = 1, n = regions.length + 1; cluster < n; cluster ++) {
+          var resp = jelastic.env.control.GetEnvInfo('${settings.envName}-' + cluster, session);
+          if (resp.result != 0) return resp;
+          for (var i = 0, k = resp.nodes; i < k.length; i++) {
+            if (k[i].nodeGroup == 'sqldb')
+              k[i].ismaster ? glbs["master_id_galera-" + cluster] = k[i].id : 0;
+            if (k[i].nodeGroup == 'bl') 
+              k[i].ismaster ? glbs["master_id_bl-" + cluster] = k[i].id : 0;
+            if (k[i].nodeGroup == 'cp') 
+              k[i].ismaster ? glbs["master_id_cp-" + cluster] = k[i].id : 0;
+          }
+        }
+        return { result: 0, onAfterReturn: onAfterReturn };
+  
+success:
+  email: success/email/${globals.regionsCount}-region-${globals.email}.md?_r=${fn.random}
+  text: success/text/${globals.regionsCount}-region-${globals.success}.md?_r=${fn.random}
+
+startPage: ${globals.protocol}://${globals.domain}/
