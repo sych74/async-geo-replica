@@ -1,0 +1,8 @@
+jpsType: install
+id: async-geo-replication-test-topology
+name: Async Geo Replication Topology
+nodes:
+  - nodeType: mysql
+    nodeGroup: sqldb
+    count: 1
+    cloudlets: 16
