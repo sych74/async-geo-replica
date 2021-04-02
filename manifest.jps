@@ -3,6 +3,28 @@ name: Async Geo Replication
 id: async-geo-replication
 baseUrl: https://raw.githubusercontent.com/sych74/async-geo-replica/main
 
+settings:
+  fields:
+    - caption: Regions
+      type: regionlist
+      name: regions
+      disableInactive: true
+      selectFirstAvailable: true
+      multiSelect: true
+      min: 1
+      max: 5
+      filter:
+        isActive: true
+      tooltip: <h3>Select destination regions.</h3> The first region selected should have the highest performance. It will host a master cluster.
+
+    - caption: Environment
+      type: envname
+      name: envName
+      dependsOn: region
+      randomName: true
+      showFullDomain: false
+      required: true
+
 globals:
   db_user: jelastic-${fn.random}
   db_pass: ${fn.password(10)}
@@ -85,8 +107,3 @@ actions:
         }
         return { result: 0, onAfterReturn: onAfterReturn };
   
-success:
-  email: success/email/${globals.regionsCount}-region-${globals.email}.md?_r=${fn.random}
-  text: success/text/${globals.regionsCount}-region-${globals.success}.md?_r=${fn.random}
-
-startPage: ${globals.protocol}://${globals.domain}/
