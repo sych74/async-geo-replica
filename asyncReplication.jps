@@ -5,7 +5,7 @@ description: Async Geo Replication
 baseUrl: https://raw.githubusercontent.com/sych74/wordpress-multiregions/master
 
 globals:
-  master: true
+  master: false
   pre_install: false
   post_install: true
   db_user: test
@@ -38,6 +38,8 @@ onInstall:
       - else:
         - setupMaterReplication:
             master: ${globals.master1_ip}
+    - else:
+        - setupSlaveReplication
 
 actions:
   setupMainUser:
@@ -69,6 +71,13 @@ actions:
       MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "CHANGE MASTER TO MASTER_HOST = '${this.master}', MASTER_USER = '${globals.repl_user}', MASTER_PASSWORD = '${globals.repl_pass}',  MASTER_AUTO_POSITION = 1;";
       MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "START SLAVE;";
 
+  setupSlaveReplication:
+    cmd[sqldb]: |-
+      MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "SELECT asynchronous_connection_failover_add_source('ch1', '${globals.master1_ip}', 3306, '', 100);";
+      MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "SELECT asynchronous_connection_failover_add_source('ch1', '${globals.master2_ip}', 3306, '', 10);";
+      MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "CHANGE MASTER TO SOURCE_CONNECTION_AUTO_FAILOVER=1 FOR CHANNEL 'ch1';";
+      MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "START REPLICA FOR CHANNEL 'ch1';";
+
   getMastersIPs:
      - script: |
         var onAfterReturn = { setGlobals: {} },
@@ -87,54 +96,3 @@ actions:
         }
         return { result: 0, onAfterReturn: onAfterReturn };
     
-  setupUser:
-    cmd[${this.id}]: |-
-      wget ${globals.PATH}/scripts/setupUser.sh -O ~/setupUser.sh &>> /var/log/run.log
-      bash ~/setupUser.sh ${globals.DB_USER} ${globals.DB_PASS} &>> /var/log/run.log
-    user: root
-
-  setupMaster:
-    - cmd[${this.id}]: |-
-        wget ${globals.PATH}/configs/master.cnf -O /etc/mysql/conf.d/master.cnf &>> /var/log/run.log
-        sed -i "s/report_host.*/report_host = node${this.id}/" /etc/mysql/conf.d/master.cnf; 
-        sed -i "s/server-id.*/server-id = ${this.id}/" /etc/mysql/conf.d/master.cnf
-        sed -i "s/auto-increment-offset.*/auto-increment-offset = ${this.increment}/" /etc/mysql/conf.d/master.cnf
-  
-  addSlaves:
-    - forEach(n:nodes.sqldb):
-        addNewSlave: ${@n.id}
-  
-  addNewSlave:
-    - if (('${this}' != '${globals.master1_id}') && ('${this}' != '${globals.master2_id}')):
-        - setupSlave:
-            id: ${this}
-        - setupReplication:
-            id: ${this}
-            masterId: "${globals.master_id_for_new_slave}"
-        - setMasterForNewSlave
-
-  reconfigureReplication:
-    cmd[${this.id}]: |-
-      rm -f /var/lib/mysql/auto.cnf;
-      sed -i "s/report_host.*/report_host = node${this.id}/" ${this.config};
-      sed -i "s/server-id.*/server-id = ${this.id}/" ${this.config};
-      mysqlreplicate --master=${globals.DB_USER}:${globals.DB_PASS}@node${this.master_id}:3306 --slave=${globals.DB_USER}:${globals.DB_PASS}@node${this.id}:3306 --rpl-user=${globals.REPLICATION_USER}:${globals.REPLICATION_PASS}
-      sudo /etc/init.d/mysql restart;
-
-  reconfigureMasters:
-    - reconfigureReplication:
-        id: "${globals.master1_id}"
-        master_id: "${globals.master2_id}"
-        config: "/etc/mysql/conf.d/master.cnf"
-    - reconfigureReplication:
-        id: "${globals.master2_id}"
-        master_id: "${globals.master1_id}"
-        config: "/etc/mysql/conf.d/master.cnf"
-    
-  reconfigureSlave:  
-    - if (('${this}' != '${globals.master1_id}') && ('${this}' != '${globals.master2_id}')):
-      - reconfigureReplication:
-          id: ${this}
-          master_id: "${globals.master_id_for_new_slave}"
-          config: "/etc/mysql/conf.d/slave.cnf"
-  
