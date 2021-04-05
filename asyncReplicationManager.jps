@@ -7,18 +7,11 @@ baseUrl: https://raw.githubusercontent.com/sych74/wordpress-multiregions/master
 globals:
   db_user: ${settings.db_user}
   db_pass: ${settings.db_pass}
+  cluster_name: env-8608450
 
 onInstall:
   - getClusterEnvs
-  - importGlobalsFromNodeGroup: bl
-  - getGaleraNodesAddress
-  - setGlobals:
-      galera_nodes_address: ${response.galera_nodes_address}
-  - if ('${globals.install_galera_cluster}' == 'true'):
-    - installGaleraCluster
-    - bootstrapGaleraCluster
-    - startGaleraCluster
-
+  - getMasterNodesAddress
 
 actions:
   getClusterEnvs:
@@ -40,64 +33,22 @@ actions:
           }
         return { result: 0, onAfterReturn: { setGlobals: globals } };
 
-  getGaleraNodesAddress:
+  getMasterNodesAddress:
     - script: |
-        var envs = '${globals.clusterEnvs}'.split(','),
-            actions = [],
-            galera_nodes_address = "";
-        for (var i = 0, n = envs.length; i < n; i ++) {
-          var resp = jelastic.env.control.GetEnvInfo(envs[i], session);
-          if (resp.result != 0) return resp;
-          for (var l = 0, k = resp.nodes; l < k.length; l++) {
-            if (k[l].nodeGroup == 'sqldb') {
-              galera_nodes_address += k[l].address + ",";
-            }
-          }
+        var onAfterReturn = { setGlobals: {} },
+            glbs = onAfterReturn.setGlobals;
+        var resp = api.env.control.GetNodeGroups("${globals.cluster_name}-1", session);
+        if (resp.result != 0) return resp;
+        for (var i = 0, k = resp.nodes; i < k.length; i++) {
+          if (k[i].nodeGroup == 'sqldb')
+              k[i].ismaster ? glbs["db_master-1"] = k[i].address : 0;
         }
-        galera_nodes_address = galera_nodes_address.slice(0, -1);
-        return { result: 0, galera_nodes_address: galera_nodes_address }
+        var resp = api.env.control.GetNodeGroups("${globals.cluster_name}-2", session);
+        if (resp.result != 0) return resp;
+        for (var i = 0, k = resp.nodes; i < k.length; i++) {
+          if (k[i].nodeGroup == 'sqldb')
+              k[i].ismaster ? glbs["db_master-2"] = k[i].address : 0;
+        }
+        return { result: 0, onAfterReturn: { setGlobals: globals } };
 
-  installGaleraCluster:
-    - script: |
-        var envs = '${globals.clusterEnvs}'.split(','),
-            actions = [];
-        for (var i = 0, n = envs.length; i < n; i ++) {
-          actions.push({
-            jps: "${baseUrl}/scripts/geoGalera.jps?_r=${fn.random}",
-            envName: envs[i],
-            settings: {
-              path: "${globals.db_cluster_url}",
-              galera_server_id: "${globals.galera_server_id}",
-              galera_segment_id: i,
-              db_user: "${globals.db_user}",
-              db_pass: "${globals.db_pass}",
-              install_galera_cluster: "true",
-              galera_nodes_array: "${globals.galera_nodes_address}"
-            }  
-          });
-        }
-        return { result: 0, onAfterReturn: { install: actions } };
 
-  bootstrapGaleraCluster:
-    - install:
-        jps: ${baseUrl}/scripts/geoGalera.jps?_r=${fn.random}
-        envName: ${globals.master_env_name}
-        settings:
-          bootstrap_galera_cluster: true
-          
-  startGaleraCluster:
-    - script: |
-        var envs = '${globals.clusterEnvs}'.split(','),
-            actions = [];
-        for (var i = 0, n = envs.length; i < n; i ++) {
-          if (envs[i] != "${globals.master_env_name}"){
-            actions.push({
-              jps: "${baseUrl}/scripts/geoGalera.jps?_r=${fn.random}",
-              envName: envs[i],
-              settings: {
-                start_galera_cluster: "true"
-              }
-            });
-          }
-        }
-        return { result: 0, onAfterReturn: { install: actions } };
