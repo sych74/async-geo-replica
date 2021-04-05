@@ -7,11 +7,12 @@ baseUrl: https://raw.githubusercontent.com/sych74/wordpress-multiregions/master
 globals:
   db_user: ${settings.db_user}
   db_pass: ${settings.db_pass}
-  cluster_name: env-8608450
+  repl_user: ${settings.repl_user}
+  repl_pass: ${settings.repl_pass}
+  cluster_name: ${settings.cluster_name}
 
 onInstall:
   - getClusterEnvs
-  - getMasterNodesAddress
 
 actions:
   getClusterEnvs:
@@ -21,34 +22,48 @@ actions:
         nextIndex: ${response.nextIndex}
         clusterEnvs: ${response.items.join(,)}
 
-  importGlobalsFromNodeGroup:
+  initialAsyncReplication:
     - script: |
-        var resp = api.env.control.GetNodeGroups("${env.name}", session);
-        if (resp.result != 0) return resp;
-        var groups = resp.object, globals;
-        for (var i = 0, n = groups.length; i < n; i++)
-          if (groups[i].name == "${this}" && groups[i].globals) {
-            globals = new org.yaml.snakeyaml.Yaml().load(groups[i].globals);
-            break;
-          }
-        return { result: 0, onAfterReturn: { setGlobals: globals } };
+        var envs = '${globals.clusterEnvs}'.split(','),
+            actions = [], master = false;
+        for (var i = 0, n = envs.length; i < n; i ++) {
+          if ((envs[i] != "${globals.cluster_name}-1") || (envs[i] != "${globals.cluster_name}-2"))
+            master = true;
+          actions.push({
+            jps: "https://raw.githubusercontent.com/sych74/async-geo-replica/main/asyncReplication.jps?_r=${fn.random}",
+            envName: envs[i],
+            settings: {
+              master: master,
+              pre_install: "true",
+              db_user: "${globals.db_user}",
+              db_pass: "${globals.db_pass}",
+              repl_user: "${globals.repl_user}",
+              repl_pass: "${globals.repl_pass}",
+              cluster_name: "${globals.cluster_name}"              
+            }
+          });
+        }
+        return { result: 0, onAfterReturn: { install: actions } };
 
-  getMasterNodesAddress:
+  startAsyncReplication:
     - script: |
-        var onAfterReturn = { setGlobals: {} },
-            glbs = onAfterReturn.setGlobals;
-        var resp = api.env.control.GetNodeGroups("${globals.cluster_name}-1", session);
-        if (resp.result != 0) return resp;
-        for (var i = 0, k = resp.nodes; i < k.length; i++) {
-          if (k[i].nodeGroup == 'sqldb')
-              k[i].ismaster ? glbs["db_master-1"] = k[i].address : 0;
+        var envs = '${globals.clusterEnvs}'.split(','),
+            actions = [], master = false;
+        for (var i = 0, n = envs.length; i < n; i ++) {
+          if ((envs[i] != "${globals.cluster_name}-1") || (envs[i] != "${globals.cluster_name}-2"))
+            master = true;
+          actions.push({
+            jps: "https://raw.githubusercontent.com/sych74/async-geo-replica/main/asyncReplication.jps?_r=${fn.random}",
+            envName: envs[i],
+            settings: {
+              master: master,
+              post_install: "true",
+              db_user: "${globals.db_user}",
+              db_pass: "${globals.db_pass}",
+              repl_user: "${globals.repl_user}",
+              repl_pass: "${globals.repl_pass}",
+              cluster_name: "${globals.cluster_name}"              
+            }
+          });
         }
-        var resp = api.env.control.GetNodeGroups("${globals.cluster_name}-2", session);
-        if (resp.result != 0) return resp;
-        for (var i = 0, k = resp.nodes; i < k.length; i++) {
-          if (k[i].nodeGroup == 'sqldb')
-              k[i].ismaster ? glbs["db_master-2"] = k[i].address : 0;
-        }
-        return { result: 0, onAfterReturn: { setGlobals: globals } };
-
-
+        return { result: 0, onAfterReturn: { install: actions } };
