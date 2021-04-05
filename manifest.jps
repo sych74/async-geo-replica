@@ -30,6 +30,8 @@ globals:
   db_pass: ${fn.password(10)}
   repl_user: replica-${fn.random}
   repl_pass: ${fn.password(10)}
+  monitor_user: monitor-${fn.random}
+  monitor_pass: ${fn.password(10)}
 
 onInstall:
   - initGlobals
@@ -42,6 +44,8 @@ onInstall:
         db_pass: ${globals.db_pass}
         repl_user: ${globals.repl_user}
         repl_pass: ${globals.repl_pass}
+        monitor_user: ${globals.monitor_user}
+        monitor_pass: ${globals.monitor_pass}        
         cluster_name: ${settings.envName}
 
 actions:
