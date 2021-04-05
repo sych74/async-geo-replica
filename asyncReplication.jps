@@ -8,10 +8,10 @@ globals:
   master: ${settings.master:false}
   pre_install: ${settings.pre_install:false}
   post_install: ${settings.post_install:false}
-  db_user: test
-  db_pass: abcABC123
-  repl_user: repl
-  repl_pass: abcABC123
+  db_user: ${settings.db_user}
+  db_pass: ${settings.db_pass}
+  repl_user: ${settings.repl_user}
+  repl_pass: ${settings.repl_pass}
   cluster_name: ${settings.cluster_name:false}
   db_cluster_url: https://raw.githubusercontent.com/sych74/mysql-cluster/v2.4.0
   
