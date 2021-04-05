@@ -6,8 +6,3 @@ nodes:
     nodeGroup: sqldb
     count: 1
     cloudlets: 16
-  - nodeType: proxysql
-    cloudlets: 8
-    displayName: ProxySQL
-    nodeGroup: proxy
-    
