@@ -13,6 +13,8 @@ globals:
 
 onInstall:
   - getClusterEnvs
+  - initialAsyncReplication
+  - startAsyncReplication
 
 actions:
   getClusterEnvs:
