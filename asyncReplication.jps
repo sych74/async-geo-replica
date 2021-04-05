@@ -72,7 +72,7 @@ actions:
 
   setupSlaveReplication:
     cmd[sqldb]: |-
-      MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "CHANGE MASTER TO MASTER_HOST = '${globals.master1_ip}', MASTER_USER = '${globals.repl_user}', MASTER_PASSWORD = '${globals.repl_pass}',  MASTER_AUTO_POSITION = 1 FOR CHANNEL 'ch1';";
+      MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "CHANGE MASTER TO MASTER_HOST = '${globals.master1_ip}', MASTER_USER = '${globals.repl_user}', MASTER_PASSWORD = '${globals.repl_pass}',  MASTER_AUTO_POSITION = 1 MASTER_RETRY_COUNT=1 FOR CHANNEL 'ch1';";
       MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "SELECT asynchronous_connection_failover_add_source('ch1', '${globals.master1_ip}', 3306, '', 100);";
       MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "SELECT asynchronous_connection_failover_add_source('ch1', '${globals.master2_ip}', 3306, '', 10);";
       MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "CHANGE MASTER TO SOURCE_CONNECTION_AUTO_FAILOVER=1 FOR CHANNEL 'ch1';";
