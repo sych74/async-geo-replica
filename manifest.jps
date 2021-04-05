@@ -28,14 +28,23 @@ settings:
 globals:
   db_user: jelastic-${fn.random}
   db_pass: ${fn.password(10)}
+  repl_user: replica-${fn.random}
+  repl_pass: ${fn.password(10)}
 
 onInstall:
   - initGlobals
   - createEnvs
-  - getEnvNodes
+  - install:
+    - jps: https://raw.githubusercontent.com/sych74/async-geo-replica/main/asyncReplicationManager.jps
+      envName: ${settings.envName}-1
+      settings:
+        db_user: ${globals.db_user}
+        db_pass: ${globals.db_pass}
+        repl_user: ${globals.repl_user}
+        repl_pass: ${globals.repl_pass}
+        cluster_name: ${settings.envName}
 
 actions:
-
   initGlobals:
     - script: |
         var regions = '${settings.regions}'.split(','),
@@ -88,22 +97,3 @@ actions:
         }
         return { result: 0, onAfterReturn: { install: actions } };
 
-  getEnvNodes:
-    - script: |
-        var regions = '${settings.regions}'.split(','),
-            onAfterReturn = { setGlobals: {} },
-            glbs = onAfterReturn.setGlobals;
-        for (var cluster = 1, n = regions.length + 1; cluster < n; cluster ++) {
-          var resp = jelastic.env.control.GetEnvInfo('${settings.envName}-' + cluster, session);
-          if (resp.result != 0) return resp;
-          for (var i = 0, k = resp.nodes; i < k.length; i++) {
-            if (k[i].nodeGroup == 'sqldb')
-              k[i].ismaster ? glbs["master_id_galera-" + cluster] = k[i].id : 0;
-            if (k[i].nodeGroup == 'bl') 
-              k[i].ismaster ? glbs["master_id_bl-" + cluster] = k[i].id : 0;
-            if (k[i].nodeGroup == 'cp') 
-              k[i].ismaster ? glbs["master_id_cp-" + cluster] = k[i].id : 0;
-          }
-        }
-        return { result: 0, onAfterReturn: onAfterReturn };
-  
