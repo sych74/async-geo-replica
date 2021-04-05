@@ -12,6 +12,8 @@ globals:
   db_pass: ${settings.db_pass}
   repl_user: ${settings.repl_user}
   repl_pass: ${settings.repl_pass}
+  monitor_user: ${settings.monitor_user}
+  monitor_pass: ${settings.monitor_pass}
   cluster_name: ${settings.cluster_name:false}
   db_cluster_url: https://raw.githubusercontent.com/sych74/mysql-cluster/v2.4.0
   
@@ -39,6 +41,7 @@ onInstall:
             master: ${globals.master1_ip}
     - else:
         - setupSlaveReplication
+    - setupProxySQL
 
 actions:
   setupMainUser:
@@ -51,6 +54,12 @@ actions:
     cmd[sqldb]: |-
       MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "CREATE USER '${globals.repl_user}'@'%' IDENTIFIED BY '${globals.repl_pass}';";
       MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "GRANT REPLICATION CLIENT,REPLICATION SLAVE ON *.* TO '${globals.repl_user}'@'%'; FLUSH PRIVILEGES;";
+      
+  setupMonitorUser:
+    cmd[sqldb]: |-
+      MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "CREATE USER '${globals.monitor_user}'@'%' IDENTIFIED BY '${globals.monitor_pass}';"
+      MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "GRANT SUPER,REPLICATION CLIENT ON *.* TO '${globals.monitor_user}'@'%';"
+      MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "FLUSH PRIVILEGES;"
       
   masterConfiguration:
     cmd[sqldb]: |-
@@ -77,6 +86,21 @@ actions:
       MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "SELECT asynchronous_connection_failover_add_source('ch1', '${globals.master2_ip}', 3306, '', 10);";
       MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "CHANGE MASTER TO SOURCE_CONNECTION_AUTO_FAILOVER=1 FOR CHANNEL 'ch1';";
       MYSQL_PWD=${globals.db_pass} mysql -u${globals.db_user} -e "START REPLICA FOR CHANNEL 'ch1';";
+      
+  setupProxySQL:
+    cmd[proxy]: |-
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "INSERT INTO mysql_replication_hostgroups VALUES (10,11,'read_only','Group setup');"
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "INSERT INTO mysql_users (username, password, active, default_hostgroup, max_connections) VALUES ('${globals.db_user}', '${globals.db_pass}', 1, 10, 1000);"
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "INSERT INTO mysql_query_rules (active, match_pattern, destination_hostgroup, apply) VALUES (1, '^SELECT.*', 11, 1);"
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "UPDATE global_variables SET variable_value='${globals.monitor_user}' WHERE variable_name='mysql-monitor_username';"
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "UPDATE global_variables SET variable_value='${globals.monitor_pass}' WHERE variable_name='mysql-monitor_password';"
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "INSERT INTO mysql_servers (hostgroup_id, hostname, port,weight) VALUES (10, '${globals.master1_ip}', 3306,100);"
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "INSERT INTO mysql_servers (hostgroup_id, hostname, port,weight) VALUES (10, '${globals.master2_ip}', 3306,50);"
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "INSERT INTO mysql_servers (hostgroup_id, hostname, port,weight) VALUES (11, '${nodes.sqldb.master.address}', 3306,100);"
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "LOAD MYSQL VARIABLES TO RUNTIME; SAVE MYSQL VARIABLES TO DISK;"
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "LOAD MYSQL SERVERS TO RUNTIME; SAVE MYSQL SERVERS TO DISK;"
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "LOAD MYSQL USERS TO RUNTIME; SAVE MYSQL USERS TO DISK;"
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "LOAD MYSQL QUERY RULES TO RUNTIME; SAVE MYSQL QUERY RULES TO DISK;"
 
   getMastersIPs:
      - script: |
