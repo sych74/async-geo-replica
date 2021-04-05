@@ -5,17 +5,16 @@ description: Async Geo Replication
 baseUrl: https://raw.githubusercontent.com/sych74/wordpress-multiregions/master
 
 globals:
-  master: false
-  pre_install: false
-  post_install: true
+  master: ${settings.master:false}
+  pre_install: ${settings.pre_install:false}
+  post_install: ${settings.post_install:false}
   db_user: test
   db_pass: abcABC123
   repl_user: repl
   repl_pass: abcABC123
-  cluster_name: env-4594602
+  cluster_name: ${settings.cluster_name:false}
   db_cluster_url: https://raw.githubusercontent.com/sych74/mysql-cluster/v2.4.0
   
-
 onInstall:
   - if ('${globals.pre_install}' == 'true'):
     - if ('${globals.master}' == 'true'):
