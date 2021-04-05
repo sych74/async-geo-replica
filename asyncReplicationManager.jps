@@ -9,6 +9,8 @@ globals:
   db_pass: ${settings.db_pass}
   repl_user: ${settings.repl_user}
   repl_pass: ${settings.repl_pass}
+  monitor_user: ${settings.monitor_user}
+  monitor_pass: ${settings.monitor_pass}
   cluster_name: ${settings.cluster_name}
 
 onInstall:
@@ -42,6 +44,8 @@ actions:
               db_pass: "${globals.db_pass}",
               repl_user: "${globals.repl_user}",
               repl_pass: "${globals.repl_pass}",
+              monitor_user: "${globals.monitor_user}",
+              monitor_pass: "${globals.monitor_pass}",
               cluster_name: "${globals.cluster_name}"              
             }
           });
@@ -66,6 +70,8 @@ actions:
               db_pass: "${globals.db_pass}",
               repl_user: "${globals.repl_user}",
               repl_pass: "${globals.repl_pass}",
+              monitor_user: "${globals.monitor_user}",
+              monitor_pass: "${globals.monitor_pass}",
               cluster_name: "${globals.cluster_name}"              
             }
           });
