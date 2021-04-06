@@ -38,18 +38,20 @@ onInstall:
       - if ('${env.envName}' == '${globals.cluster_name}-1'):
         - setupMaterReplication:
             master: ${globals.master2_ip}
+        - addMasterToProxySQL
         - addSlaveToProxySQL:
             slaveIP: ${globals.master2_ip}
             weight: 10           
       - else:
         - setupMaterReplication:
             master: ${globals.master1_ip}
+        - addMasterToProxySQL
         - addSlaveToProxySQL:
             slaveIP: ${globals.master1_ip}
             weight: 10                       
     - else:
         - setupSlaveReplication
-    - addMasterToProxySQL
+        - addMasterToProxySQL
     - addSlaveToProxySQL:
         slaveIP: ${nodes.sqldb.master.address}
         weight: 100
