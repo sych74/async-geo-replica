@@ -94,13 +94,20 @@ actions:
       MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "INSERT INTO mysql_query_rules (active, match_pattern, destination_hostgroup, apply) VALUES (1, '^SELECT.*', 11, 1);"
       MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "UPDATE global_variables SET variable_value='${globals.monitor_user}' WHERE variable_name='mysql-monitor_username';"
       MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "UPDATE global_variables SET variable_value='${globals.monitor_pass}' WHERE variable_name='mysql-monitor_password';"
-      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "INSERT INTO mysql_servers (hostgroup_id, hostname, port,weight) VALUES (10, '${globals.master1_ip}', 3306,100);"
-      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "INSERT INTO mysql_servers (hostgroup_id, hostname, port,weight) VALUES (10, '${globals.master2_ip}', 3306,50);"
-      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "INSERT INTO mysql_servers (hostgroup_id, hostname, port,weight) VALUES (11, '${nodes.sqldb.master.address}', 3306,100);"
       MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "LOAD MYSQL VARIABLES TO RUNTIME; SAVE MYSQL VARIABLES TO DISK;"
-      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "LOAD MYSQL SERVERS TO RUNTIME; SAVE MYSQL SERVERS TO DISK;"
       MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "LOAD MYSQL USERS TO RUNTIME; SAVE MYSQL USERS TO DISK;"
       MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "LOAD MYSQL QUERY RULES TO RUNTIME; SAVE MYSQL QUERY RULES TO DISK;"
+
+  addMasterToProxySQL:
+    cmd[proxy]: |-
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "INSERT INTO mysql_servers (hostgroup_id, hostname, port,weight) VALUES (10, '${globals.master1_ip}', 3306,100);"
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "INSERT INTO mysql_servers (hostgroup_id, hostname, port,weight) VALUES (10, '${globals.master2_ip}', 3306,50);"
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "LOAD MYSQL SERVERS TO RUNTIME; SAVE MYSQL SERVERS TO DISK;"
+  
+  addSlaveToProxySQL:
+    cmd[proxy]: |-
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "INSERT INTO mysql_servers (hostgroup_id, hostname, port,weight) VALUES (11, '${nodes.sqldb.master.address}', 3306,100);"
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "LOAD MYSQL SERVERS TO RUNTIME; SAVE MYSQL SERVERS TO DISK;"
 
   getMastersIPs:
      - script: |
