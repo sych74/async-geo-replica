@@ -42,6 +42,8 @@ onInstall:
     - else:
         - setupSlaveReplication
     - setupProxySQL
+    - addMasterToProxySQL
+    - addSlaveToProxySQL
 
 actions:
   setupMainUser:
