@@ -33,18 +33,26 @@ onInstall:
     - setupMonitorUser
   - if ('${globals.post_install}' == 'true'):
     - getMastersIPs
+    - setupProxySQL
     - if ('${globals.master}' == 'true'):
       - if ('${env.envName}' == '${globals.cluster_name}-1'):
         - setupMaterReplication:
             master: ${globals.master2_ip}
+        - addSlaveToProxySQL:
+            slaveIP: ${globals.master2_ip}
+            weight: 10           
       - else:
         - setupMaterReplication:
             master: ${globals.master1_ip}
+        - addSlaveToProxySQL:
+            slaveIP: ${globals.master1_ip}
+            weight: 10                       
     - else:
         - setupSlaveReplication
-    - setupProxySQL
     - addMasterToProxySQL
-    - addSlaveToProxySQL
+    - addSlaveToProxySQL:
+        slaveIP: ${nodes.sqldb.master.address}
+        weight: 100
 
 actions:
   setupMainUser:
@@ -104,12 +112,12 @@ actions:
   addMasterToProxySQL:
     cmd[proxy]: |-
       MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "INSERT INTO mysql_servers (hostgroup_id, hostname, port,weight) VALUES (10, '${globals.master1_ip}', 3306,100);"
-      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "INSERT INTO mysql_servers (hostgroup_id, hostname, port,weight) VALUES (10, '${globals.master2_ip}', 3306,50);"
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "INSERT INTO mysql_servers (hostgroup_id, hostname, port,weight) VALUES (10, '${globals.master2_ip}', 3306,10);"
       MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "LOAD MYSQL SERVERS TO RUNTIME; SAVE MYSQL SERVERS TO DISK;"
   
   addSlaveToProxySQL:
     cmd[proxy]: |-
-      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "INSERT INTO mysql_servers (hostgroup_id, hostname, port,weight) VALUES (11, '${nodes.sqldb.master.address}', 3306,100);"
+      MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "INSERT INTO mysql_servers (hostgroup_id, hostname, port,weight) VALUES (11, '${this.slaveIP}', 3306, '${this.weight}');"
       MYSQL_PWD=admin mysql -h 127.0.0.1 -P6032 -uadmin -e "LOAD MYSQL SERVERS TO RUNTIME; SAVE MYSQL SERVERS TO DISK;"
 
   getMastersIPs:
