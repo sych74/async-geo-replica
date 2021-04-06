@@ -30,6 +30,7 @@ onInstall:
       - slaveConfiguration
     - setupMainUser
     - setupReplicaUser
+    - setupMonitorUser
   - if ('${globals.post_install}' == 'true'):
     - getMastersIPs
     - if ('${globals.master}' == 'true'):
