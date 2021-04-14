@@ -36,17 +36,6 @@ globals:
 onInstall:
   - initGlobals
   - createEnvs
-  - install:
-    - jps: https://raw.githubusercontent.com/sych74/async-geo-replica/main/asyncReplicationManager.jps
-      envName: ${settings.envName}-1
-      settings:
-        db_user: ${globals.db_user}
-        db_pass: ${globals.db_pass}
-        repl_user: ${globals.repl_user}
-        repl_pass: ${globals.repl_pass}
-        monitor_user: ${globals.monitor_user}
-        monitor_pass: ${globals.monitor_pass}        
-        cluster_name: ${settings.envName}
 
 actions:
   initGlobals:
@@ -83,21 +72,17 @@ actions:
 
   createEnvs:
     - script: |
-        var regions = '${settings.regions}'.split(','),
-            actions = [];
+        var regions = '${settings.regions}'.split(','), actions = [];
+        var envGroups = eval('(' + MANIFEST + ')').envGroups;
         for (var cluster = 1, n = regions.length + 1; cluster < n; cluster ++) {
           actions.push({
             jps: "${baseUrl}/topology.jps?_r=${fn.random}",
             envName: "${settings.envName}-" + cluster,
             loggerName: "${settings.envName}-" + cluster,
-            envGroups: "${globals.envGroups}",
+            envGroups: envGroups,
             displayName: "${globals.displayName-" + cluster + "}",
             region: "${globals.region-" + cluster + "}",
-            settings: {
-              db_user: "${globals.db_user}",
-              db_pass: "${globals.db_pass}"
-            }  
           });
         }
-        return { result: 0, onAfterReturn: { install: actions } };
+        return { result: 0, onAfterReturn: { 'marketplace.jps.install': actions } };
 
